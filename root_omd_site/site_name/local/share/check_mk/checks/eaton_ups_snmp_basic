@@ -1,0 +1,57 @@
+#!/usr/bin/python
+## Set default parameter values for warn and crit for BatTimeRemaining in seconds
+# user may override in main.mk - just place copy of below line in ~/etc/check_mk/main.mk, and adjust number of seconds.
+eaton_ups_snmp_basic_default_levels = (600, 300)
+
+snmp_info["eaton_ups_snmp_basic"] = ( ".1.3.6.1.4.1.534.1.2", [ "1", "3", "5" ] )
+
+def inventory_eaton_ups_snmp_basic(info):
+   # Debug: lets see what the data we get looks like
+   #print info
+   #import pprint ; pprint.pprint(info)
+   #return []
+   yield "status", "eaton_ups_snmp_basic_default_levels"
+
+
+def check_eaton_ups_snmp_basic(item, params, info):
+   # unpack check parameters, these are boundaries for remaining runtime
+   # in case the UPS is powered by batteries
+   warn, crit = params
+
+   # debug: let's see if we get passed the parameters we'd like
+   #print "UPS Runtime warning level set to %d seconds, critial to %d seconds." % (warn, crit)
+
+   ## unravel results from snmpwalk
+   # Remaining runtime in seconds
+   xupsBatTimeRemaining = int(info[0][0])
+
+   # Battery current, positive number means we're using battery power.  Testing with 10% load shows no reaction from this one, can't use to determine status.
+   xupsBatCurrent = int(info[0][1])
+
+   # status code for battery, test vital signs
+   xupsBatteryAbmStatus = int(info[0][2])
+
+   if xupsBatteryAbmStatus == 2:
+      if xupsBatTimeRemaining <= crit:
+         return 2, "On Battery, Remaining Runtime of %d seconds is below CRITICAL, must shutdown now!!" % xupsBatTimeRemaining
+      elif xupsBatTimeRemaining <= warn:
+         return 1, "On Battery, Remaining Runtime of %d seconds - a word of cautionary word of WARNING...!" % xupsBatTimeRemaining
+      else:
+         return 0, "On Battery, Remaining Runtime of %d seconds" % xupsBatTimeRemaining
+   if xupsBatteryAbmStatus == 6:
+      return 1, "Battery is disconnected, Emergency  shutdown not possible, please fix!"
+   if xupsBatteryAbmStatus == 8:
+      return 1, "last Battery check failed, emergeny shutdown may not work, please follow up!"
+   return 0, "All good, battery runtime with current load is %d seconds" % xupsBatTimeRemaining
+   #return (3, "UNKNOWN - not yet implemented")
+
+
+# look for PowerWare Eaton SNMP v1 network module and report for inventory
+# This uses Eaton PowerMIB xUPS.MIB OID's
+check_info["eaton_ups_snmp_basic"] = {
+    "check_function"        : check_eaton_ups_snmp_basic,
+    "inventory_function"    : inventory_eaton_ups_snmp_basic,
+    "service_description"   : "Check for PowerWare Eaton UPS basic SNMP %s",
+    "snmp_info"             : ( ".1.3.6.1.4.1.534.1.2", [ "1", "3", "5" ] ),
+    'snmp_scan_function'    : lambda oid: oid(".1.3.6.1.4.1.534.1.1.1.0") == "EATON",
+}
