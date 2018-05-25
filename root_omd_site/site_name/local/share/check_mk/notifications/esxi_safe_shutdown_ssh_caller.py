@@ -63,17 +63,24 @@ if __name__ == '__main__':
 
 	# debug statements
 	#print "Specified hosts found: %s" % hosts
+	
+	# Get hold of logfile
+	home_foldername = os.path.expanduser('~')
+	notify_logfilename = home_foldername + "/var/log/notify.log"
+	
+	# build path for shutdown script command
+	shutdown_script_cmd = home_foldername + "/local/share/check_mk/notifications/esxi_safe_shutdown_ssh.py"
 
 	for host in hosts:
 		try:
 			# Get hold of logfile
-			home_foldername = os.path.expanduser('~')
-			notify_logfilename = home_foldername + "/var/log/notify.log"
+			#home_foldername = os.path.expanduser('~')
+			#notify_logfilename = home_foldername + "/var/log/notify.log"
 			outfile = open(notify_logfilename, 'a+')
 			errfile = open(notify_logfilename, 'a+')
 
 			## use nohub for backgrounding child process so multiple hosts may be handled in parallel
-			exec_args = ["nohup"] + ["esxi_safe_shutdown_ssh.py"] + ["--host"] + [host] + args
+			exec_args = ["nohup"] + [shutdown_script_cmd] + ["--host"] + [host] + args
 			# debug statements
 			#print "Executing new background subprocess:"
 			#print exec_args
